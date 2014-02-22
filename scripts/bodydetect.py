@@ -2,9 +2,14 @@
 
 import numpy as np
 import cv2
+import sys
+
+# TWEAKABLE
+SHRUNKEN_SIZE=300
+SCALE=1.02
 
 help_message = '''
-USAGE: peopledetect.py <image_names> ...
+USAGE: bodydetect.py <image_names> ...
 
 Press any key to continue, ESC to stop.
 '''
@@ -18,9 +23,63 @@ def draw_detections(img, rects, thickness = 1):
     for x, y, w, h in rects:
         # the HOG detector returns slightly larger rectangles than the real objects.
         # so we slightly shrink the rectangles to get a nicer output.
-        pad_w, pad_h = int(0.15*w), int(0.05*h)
+        pad_w, pad_h = (0, 0)
         cv2.rectangle(img, (x+pad_w, y+pad_h), (x+w-pad_w, y+h-pad_h), (0, 255, 0), thickness)
 
+
+def normalize_img(img):
+  height, width, depth = img.shape
+
+  if height > width:
+    fy = float(SHRUNKEN_SIZE) / height
+    fx = fy
+  else:
+    fy = float(SHRUNKEN_SIZE) / width
+    fx = fy
+
+  small = cv2.resize(img, (0,0), fx=fx, fy=fy)
+#  gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+  return small
+
+
+  
+def detect_body_boundary(img):
+  img = normalize_img(img)
+  found, w = hog.detectMultiScale(img, winStride=(4,4), padding=(32,32), scale=SCALE)
+  found_filtered = []
+
+  for ri, r in enumerate(found):
+      for qi, q in enumerate(found):
+          if ri != qi and inside(r, q):
+              break
+      else:
+          found_filtered.append(r)
+
+  print len(found), len(found_filtered)
+  draw_detections(img, found_filtered, 3)
+
+  cv2.imshow('img', img)
+  ch = 0xFF & cv2.waitKey()
+  if ch == 27:
+      sys.exit(0)
+  return found_filtered
+
+
+# NOT USED
+def cascade_body(img):
+  img = normalize_img(img)
+  face_cascade = cv2.CascadeClassifier('haarcascade_fullbody.xml')
+  faces = face_cascade.detectMultiScale(img, 1.04, 5)
+
+  print faces
+
+  for (x,y,w,h) in faces:
+      cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+
+  cv2.imshow('img', img)
+  ch = 0xFF & cv2.waitKey()
+  if ch == 27:
+      sys.exit(0)
 
 if __name__ == '__main__':
     import sys
@@ -44,34 +103,5 @@ if __name__ == '__main__':
             print 'loading error'
             continue
 
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        height, width, depth = img.shape
-
-        if height > width:
-          fy = 300.0 / height
-          fx = 300.0 / height
-        else:
-          fy = 300.0 / width
-          fx = 300.0 / width
-
-        print height, width, fx, fy
-        small = cv2.resize(gray, (0,0), fx=fx, fy=fy)
-
-        found, w = hog.detectMultiScale(small, winStride=(8,8), padding=(32,32), scale=1.01)
-        found_filtered = []
-
-        for ri, r in enumerate(found):
-            for qi, q in enumerate(found):
-                if ri != qi and inside(r, q):
-                    break
-            else:
-                found_filtered.append(r)
-
-        draw_detections(small, found)
-        draw_detections(small, found_filtered, 3)
-        print '%d (%d) found' % (len(found_filtered), len(found))
-        cv2.imshow('img', small)
-        ch = 0xFF & cv2.waitKey()
-        if ch == 27:
-            break
+        detect_body_boundary(img)
     cv2.destroyAllWindows()

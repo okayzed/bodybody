@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+# TODO
+# use a face detector to help improve accuracy
+# use orientation of the portrait to help improve accuracy (vertical vs. landscape)
+# depending on whether source is from blog or from user uploads, change the acceptance rating. f.e. a blog pulled image, we might be more strict about detecting bodies in because many images are available to choose from.
+
 import numpy as np
 import cv2
 import sys
@@ -7,6 +12,8 @@ import sys
 # TWEAKABLE
 SHRUNKEN_SIZE=300
 SCALE=1.02
+FINAL_THRESHOLD=3
+
 
 help_message = '''
 USAGE: bodydetect.py <image_names> ...
@@ -45,13 +52,19 @@ def normalize_img(img):
   
 def detect_body_boundary(img):
   img = normalize_img(img)
-  found, w = hog.detectMultiScale(img, winStride=(4,4), padding=(32,32), scale=SCALE)
+  found, w = hog.detectMultiScale(img, winStride=(4,4), padding=(8,8), scale=SCALE, finalThreshold=FINAL_THRESHOLD)
   found_filtered = []
 
   for ri, r in enumerate(found):
+      good = True
       for qi, q in enumerate(found):
           if ri != qi and inside(r, q):
+              good = False
               break
+
+      if not good:
+          break
+
       else:
           found_filtered.append(r)
 
@@ -66,7 +79,7 @@ def detect_body_boundary(img):
 
 
 # NOT USED
-def cascade_body(img):
+def cascade_body_boundary(img):
   img = normalize_img(img)
   face_cascade = cv2.CascadeClassifier('haarcascade_fullbody.xml')
   faces = face_cascade.detectMultiScale(img, 1.04, 5)

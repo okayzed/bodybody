@@ -8,11 +8,14 @@
 import numpy as np
 import cv2
 import sys
+import os
 
 # TWEAKABLE
 SHRUNKEN_SIZE=300
 SCALE=1.02
 FINAL_THRESHOLD=3
+
+SHOW_IMAGE=False
 
 
 help_message = '''
@@ -50,7 +53,7 @@ def normalize_img(img):
 
 
   
-def detect_body_boundary(img):
+def detect_body_boundary(img, filename=None):
   img = normalize_img(img)
   found, w = hog.detectMultiScale(img, winStride=(4,4), padding=(8,8), scale=SCALE, finalThreshold=FINAL_THRESHOLD)
   found_filtered = []
@@ -68,13 +71,25 @@ def detect_body_boundary(img):
       else:
           found_filtered.append(r)
 
+  fn = "out/" + filename
+  basedir = os.path.dirname(fn);
+  try:
+    os.makedirs(basedir)
+  except Exception, e:
+    pass
+
   print len(found), len(found_filtered)
   draw_detections(img, found_filtered, 3)
 
-  cv2.imshow('img', img)
-  ch = 0xFF & cv2.waitKey()
-  if ch == 27:
-      sys.exit(0)
+  if SHOW_IMAGE:
+    cv2.imshow('img', img)
+    ch = 0xFF & cv2.waitKey()
+    if ch == 27:
+        sys.exit(0)
+
+
+  cv2.imwrite("out/" + filename, img);
+
   return found_filtered
 
 
@@ -116,5 +131,5 @@ if __name__ == '__main__':
             print 'loading error'
             continue
 
-        detect_body_boundary(img)
+        detect_body_boundary(img, fn)
     cv2.destroyAllWindows()
